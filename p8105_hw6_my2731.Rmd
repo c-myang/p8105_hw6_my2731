@@ -1,0 +1,19 @@
+---
+title: "P8105 Homework 6"
+output: github_document
+date: "December 3rd, 2022"
+---
+
+```{r setup, include = FALSE}
+library(tidyverse)
+library(p8105.datasets)
+
+knitr::opts_chunk$set(
+  warning = FALSE, 
+  message = FALSE,
+  fig.dim = c(12, 7))
+
+theme_set(theme_minimal() + theme(legend.position = "bottom"))
+```
+
+## Part 1: Wrangling longitudinal study data
