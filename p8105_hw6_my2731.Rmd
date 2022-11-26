@@ -122,5 +122,16 @@ We can see that across a majority of cities, the ORs are less than 1, indicating
 
 On the other hand, there is an increased odds of solving a homicide when the victim is male vs. female in Albequerque, Stockton, and Fresno. However, for the 3 cities with the highest adjusted ORs, the 95% CI crosses the null value of 1, indicating there may be a high variability in these estimates rather than an effect of victim sex on solving homicides.
 
+## Part 3: Child Birthweight
 
+Next, we will analyze data gathered to understand the effects of several variables on a child’s birthweight. This dataset, consists of roughly 4000 children and includes variables related to the baby's sex, age, bodily measurements and maternal health and socioeconomic information.
+
+### Load and clean data
+
+```{r load birth data}
+birthweight_df = read_csv("data/birthweight.csv") %>% 
+  janitor::clean_names()
+
+birthweight_df
+```
 
