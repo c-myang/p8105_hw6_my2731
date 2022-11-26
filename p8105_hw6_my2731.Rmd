@@ -96,7 +96,7 @@ OR_df = homicide_data %>%
          CIL = exp(estimate - 1.96*std.error),
          CIU = exp(estimate + 1.96*std.error)) %>% 
   filter(term == "victim_sexMale") %>% 
-  select(city_state, term, log_OR = estimate, OR, CIL, CIU, p.value) 
+  select(city_state, term, log_OR = estimate, OR, CIL, CIU, p.value)
 ```
 
 Next, we will plot the estimated ORs and CIs for each city.
@@ -118,7 +118,9 @@ OR_df %>%
           "\nSource: The Washington Post."))
 ```
 
-We can see that across all cities, the ORs and their 95% CIs are all greater than 1, indicating an increased odds of a homicide being solved when the victim is male vs. female. This effect is the smallest for New York, Baton Rouge, and Omaha, while the effect is largest for Albequerque, Stockton, and Fresno. However, for the 3 cities with the highest adjusted ORs, the 95% CI is wide, indicating there may be a high variability in these estimates rather than a stronger effect of victim sex on solving homicides.
+We can see that across a majority of cities, the ORs are less than 1, indicating a decreased odds of resolving a homicide when the victim is male vs. female. This effect is the greatest for New York, Baton Rouge, and Omaha. Many cities also have a non-significant association between victim sex and resolving homicides, indicated by the 95% CI for the adjusted OR crossing the null value of 1. 
+
+On the other hand, there is an increased odds of solving a homicide when the victim is male vs. female in Albequerque, Stockton, and Fresno. However, for the 3 cities with the highest adjusted ORs, the 95% CI crosses the null value of 1, indicating there may be a high variability in these estimates rather than an effect of victim sex on solving homicides.
 
 
 
