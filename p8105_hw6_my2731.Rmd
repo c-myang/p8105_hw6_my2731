@@ -7,6 +7,7 @@ date: "December 3rd, 2022"
 ```{r setup, include = FALSE}
 library(tidyverse)
 library(p8105.datasets)
+library(modelr)
 
 knitr::opts_chunk$set(
   warning = FALSE, 
@@ -124,14 +125,93 @@ On the other hand, there is an increased odds of solving a homicide when the vic
 
 ## Part 3: Child Birthweight
 
-Next, we will analyze data gathered to understand the effects of several variables on a child’s birthweight. This dataset, consists of roughly 4000 children and includes variables related to the baby's sex, age, bodily measurements and maternal health and socioeconomic information.
+Next, we will analyze data gathered to understand the effects of several variables on a child’s birthweight. This dataset consists of roughly 4000 children and includes variables related to the baby's sex, age, body measurements, maternal health, and parents' socioeconomic information.
 
 ### Load and clean data
+
+The code chunk below loads and clean the data for regression analysis. We will convert numeric variables into factor variables for categorical variables `babysex`, `frace`, `malform`, and `mrace`.
 
 ```{r load birth data}
 birthweight_df = read_csv("data/birthweight.csv") %>% 
   janitor::clean_names()
 
-birthweight_df
+birthweight_df = birthweight_df %>% 
+  mutate(babysex = as.factor(babysex), 
+         frace = as.factor(frace), 
+         malform = as.factor(malform), 
+         mrace = as.factor(mrace))
+
+```
+
+### Proposing a model for birthweight
+
+First, we want to propose our own model for birthweight based on variables in the dataset. I will start with selecting underlying factors that I think predict birthweight. For this, I will include gestational age, head circumference, length of the baby, mother's weight at delivery because I think they are important underlying determinants of birthweight. 
+
+```{r}
+model_1 = lm(bwt ~ bhead + blength + gaweeks + delwt, data = birthweight_df) 
+model_1 %>% broom::tidy() %>% knitr::kable(digits = 4)
+model_1 %>% broom::glance() %>% knitr::kable(digits = 4)
+```
+
+Examining the output of `broom::tidy`, we can see coefficient estimates for each variable in our linear model, and see that the p-value of the Wald test for each variable is less than 0.05, indicating that they are all significantly associated with our outcome. Moreover, examining `broom::glance`, we can see the model fit is decent, with an $R^2$ value of 0.695, indicating the selected variables explain 69.5% of the variability in birthweight. 
+
+However, we may want to see how certain sociodemographic variables predict birthweight. Therefore, to start, I will add maternal and paternal race, cigarettes smoken, family income to the model.
+
+```{r}
+model_2 = lm(formula = bwt ~ babysex + bhead + blength + delwt + 
+               mrace + frace + smoken + fincome, data = birthweight_df)
+model_2 %>% broom::glance() %>% knitr::kable(digits = 4)
+model_2 %>% broom::tidy() %>% knitr::kable(digits = 4)
+```
+
+Examining `broom::glance`, we can see the model fit has improved, with an $R^2$ value that indicates the selected variables explain 71.05% of the variability in birthweight. Examining the output of `broom::tidy`, however, we can see coefficient estimates for the `frace` variable are insignificant, and the coefficient for `fincome` is near-zero, with a p-value of 0.045 that approaches significance. Therefore, we will omit these two variables.
+
+```{r}
+model_3 = lm(bwt ~ bhead + blength + gaweeks + delwt + smoken + mrace, data = birthweight_df) 
+model_3 %>% broom::glance() %>% knitr::kable(digits = 4)
+model_3 %>% broom::tidy() %>% knitr::kable(digits = 4)
+```
+
+After removing `frace` and `fincome`, we can see the model fit has actually improved, with an $R^2$ value that indicates the selected variables explain 71.37% of the variability in birthweight. The output of `broom::tidy` shows all variables are significantly associated with birthweight, when adjusting for the other variables. Notably, we see `mrace` is a more significant predictor of birthweight, suggesting there were perhaps too many covariates that lead to multicolinearity in Model 2. Therefore, we will keep `model_3` as our final model.
+
+### Cross-validating models
+
+Now, we want to compare our model to a small model, using length at birth and gestational age as predictors (main effects only) and a large model, using head circumference, length, sex, and all interactions (including the three-way interaction). We will save Model 3 we created in the previous section as `my_mod` and fit the small and large models.
+
+```{r}
+my_mod = lm(bwt ~ bhead + blength + gaweeks + delwt + smoken + mrace, data = birthweight_df) 
+small_mod = lm(bwt ~ gaweeks + blength, data = birthweight_df)
+large_mod = lm(bwt ~ bhead + blength + babysex + bhead*blength*babysex, data = birthweight_df)
+```
+
+
+```{r}
+cv_df =
+  crossv_mc(birthweight_df, 100) %>% 
+  mutate(
+    train = map(train, as_tibble),
+    test = map(test, as_tibble))
+
+cv_df = cv_df %>% 
+  mutate(
+    my_mod = map(train, ~lm(bwt ~ bhead + blength + gaweeks + delwt + smoken + mrace, data = .x)),
+    small_mod = map(train, ~lm(bwt ~ gaweeks + blength, data = .x)),
+    large_mod  = map(train, ~lm(bwt ~ bhead + blength + babysex + bhead*blength*babysex, data = .x))) %>% 
+  mutate(
+    rmse_my = map2_dbl(my_mod, test, ~rmse(model = .x, data = .y)),
+    rmse_small = map2_dbl(small_mod, test, ~rmse(model = .x, data = .y)),
+    rmse_large = map2_dbl(large_mod, test, ~rmse(model = .x, data = .y)))
+```
+
+```{r plot rmse}
+cv_df %>% 
+  select(starts_with("rmse")) %>% 
+  pivot_longer(
+    everything(),
+    names_to = "model", 
+    values_to = "rmse",
+    names_prefix = "rmse_") %>% 
+  mutate(model = fct_inorder(model)) %>% 
+  ggplot(aes(x = model, y = rmse)) + geom_violin()
 ```
 
