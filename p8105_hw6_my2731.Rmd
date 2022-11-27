@@ -130,7 +130,7 @@ Next, we will analyze data gathered to understand the effects of several variabl
 
 ### Load and clean data
 
-The code chunk below loads and clean the data for regression analysis. We will convert numeric variables into factor variables for categorical variables `babysex`, `frace`, `malform`, and `mrace`.
+The code chunk below loads and clean the data for regression analysis. We will convert numeric variables into factor variables for categorical variables `babysex`, `frace`, `malform`, and `mrace`. We will also assign subject IDs to each observation in our dataset.
 
 ```{r load birth data}
 birthweight_df = read_csv("data/birthweight.csv") %>% 
@@ -142,14 +142,13 @@ birthweight_df = birthweight_df %>%
          malform = as.factor(malform), 
          mrace = as.factor(mrace), 
          id = 1:nrow(birthweight_df))
-
 ```
 
 ### Proposing a model for birthweight
 
 First, we want to propose our own model for birthweight based on variables in the dataset. I will start with selecting underlying factors that I think predict birthweight. For this, I will include gestational age, head circumference, length of the baby, mother's weight at delivery because I think they are important biological variables which determine birthweight. 
 
-```{r}
+```{r model 1}
 model_1 = lm(bwt ~ bhead + blength + gaweeks + delwt, data = birthweight_df) 
 summary(model_1) 
 ```
@@ -158,7 +157,7 @@ Examining `summary(model_1)` output, we can see coefficient estimates for each v
 
 However, we may want to see how certain sociodemographic variables predict birthweight. Therefore, to start, I will add maternal and paternal race, cigarettes smoken, family income to the model.
 
-```{r}
+```{r model 2}
 model_2 = lm(formula = bwt ~ babysex + bhead + blength + delwt + 
                mrace + frace + smoken + fincome, data = birthweight_df)
 summary(model_2) 
@@ -166,52 +165,52 @@ summary(model_2)
 
 Examining `summary(model_2)` output, we can see the model fit has improved, with an $R^2$ value that indicates the selected variables explain 71.05% of the variability in birthweight. However, we can see coefficient estimates for the `frace` variable are insignificant, and the coefficient for `fincome` is near-zero, with a p-value of 0.045 that approaches significance. Therefore, we will omit these two variables.
 
-```{r}
+```{r model 3}
 model_3 = lm(bwt ~ bhead + blength + gaweeks + delwt + smoken + mrace, data = birthweight_df) 
-summary(model_3) 
+summary(model_3)
 ```
 
 After removing `frace` and `fincome`, we can see the model fit has actually improved, with an $R^2$ value that indicates the selected variables explain 71.37% of the variability in birthweight. The output of `summary(model_3)` shows all variables are significantly associated with birthweight, when adjusting for the other variables. Notably, we see `mrace` is a more significant predictor of birthweight, suggesting there were perhaps too many covariates that lead to multicolinearity in Model 2. Therefore, we will keep `model_3` as our final model.
 
 Finally, we want to assess model fit and check key assumptions, by plotting the residuals and fitted values using `add_residuals` and `add_predictions`
 
-```{r}
+```{r residual pred plots}
 birthweight_df = birthweight_df %>% 
   modelr::add_residuals(model_3) %>% 
   modelr::add_predictions(model_3) 
 
 resid_plot = birthweight_df %>% 
-  ggplot(aes(x = id, y = resid)) + geom_point(alpha = 0.5, size = 0.5) + 
+  ggplot(aes(x = id, y = resid)) + geom_point(alpha = 0.5, size = 0.5, colour = "maroon") + 
   labs(
     title = "Residuals for birthweight regression model",
-    x = "",
+    x = "Subject ID",
     y = "Residual")
 
 pred_plot = birthweight_df %>% 
-  ggplot(aes(x = id, y = pred)) + geom_point(alpha = 0.5, size = 0.5) + 
+  ggplot(aes(x = id, y = pred)) + geom_point(alpha = 0.5, size = 0.5, colour = "maroon") + 
   labs(
     title = "Predicted values for birthweight regression model",
-    x = "",
+    x = "Subject ID",
     y = "Predicted value (birthweight)")
 
 resid_plot + pred_plot
 ```
 
-
 ### Cross-validating models
 
-Now, we want to compare our model to a small model, using length at birth and gestational age as predictors (main effects only) and a large model, using head circumference, length, sex, and all interactions (including the three-way interaction). We will save Model 3 we created in the previous section as `my_mod` and fit the small and large models.
+Now, we want to compare our model to a small model, using length at birth and gestational age as predictors (main effects only) and a large model, using head circumference, length, sex, and all interactions (including the three-way interaction). We will save Model 3 we created in the previous section as `my_mod` and fit the small and large models to the full dataset.
 
-```{r}
+```{r fitting 3 models}
 my_mod = lm(bwt ~ bhead + blength + gaweeks + delwt + smoken + mrace, data = birthweight_df) 
 small_mod = lm(bwt ~ gaweeks + blength, data = birthweight_df)
 large_mod = lm(bwt ~ bhead + blength + babysex + bhead*blength*babysex, data = birthweight_df)
 ```
 
+To assess prediction accuracy, we will compare cross-validated prediction errors between our 3 candidate models. The code chunk below creates a dataframe sampling training and testing data from `birthweight_df`. We then use `map` to fit each candidate model on each training dataset, and obtain the RMSE fitted on the testing data.
 
-```{r}
+```{r cv}
 cv_df =
-  crossv_mc(birthweight_df, 100) %>% 
+  crossv_mc(birthweight_df, 1000) %>% 
   mutate(
     train = map(train, as_tibble),
     test = map(test, as_tibble))
@@ -227,6 +226,8 @@ cv_df = cv_df %>%
     rmse_large = map2_dbl(large_mod, test, ~rmse(model = .x, data = .y)))
 ```
 
+Finally, we can plot the distribution of RMSE values to assess the prediction accuracy across our 3 candidate models.
+
 ```{r plot rmse}
 cv_df %>% 
   select(starts_with("rmse")) %>% 
@@ -236,6 +237,11 @@ cv_df %>%
     values_to = "rmse",
     names_prefix = "rmse_") %>% 
   mutate(model = fct_inorder(model)) %>% 
-  ggplot(aes(x = model, y = rmse)) + geom_violin()
+  ggplot(aes(x = model, y = rmse)) + geom_violin() + 
+  labs(
+    title = "RMSE of 3 candidate models predicting child birthweight",
+    x = "Model",
+    y = "RMSE")
 ```
 
+The above plot shows that my chosen model has the best prediction accuracy, with a majority of RMSEs ranging around 275. This is followed by the large model, which has the highest frequency of RMSE values around 290, then the small model, which has much higher RMSE values of around 325-350. Therefore, I would choose my model to model child birthweight, as it offers the best prediction accuracy among the 3 candidates, and offers better interpretability compared to the large model by avoiding 3-way interactions.
