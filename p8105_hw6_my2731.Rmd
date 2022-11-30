@@ -8,6 +8,7 @@ date: "December 3rd, 2022"
 library(tidyverse)
 library(p8105.datasets)
 library(modelr)
+library(patchwork)
 
 knitr::opts_chunk$set(
   warning = FALSE, 
@@ -39,7 +40,7 @@ Using  5000 bootstrap samples we will produce estimates of $\hat{r}^2$ and $log(
 
 ```{r}
 weather_bootstrap = weather_df %>% 
-  modelr::bootstrap(n = 100) %>% 
+  modelr::bootstrap(n = 5000) %>% 
   mutate(
     models = map(strap, ~lm(tmax ~ tmin, data = .x)),
     results = map(models, broom::tidy), 
@@ -69,18 +70,30 @@ boot_summary = weather_bootstrap %>%
             cil_rsquared = quantile(r_squared, 0.025), 
             ciu_rsquared = quantile(r_squared, 0.975)) 
 
-boot_summary %>% knitr::kable(digits = 3)
+head(boot_summary) %>% knitr::kable(digits = 3)
 ```
 
 Let's plot these estimates:
 
 ```{r}
-boot_summary %>% 
-  ggplot(aes(x = r_squared)) + geom_density() 
+r_sq_p = boot_summary %>% 
+  ggplot(aes(x = r_squared)) + geom_density() + 
+  labs(
+    x = "R-squared",
+    y = "Density",
+    title = "Density of R-squared estimates across bootstrapped models")
 
-boot_summary %>% 
-  ggplot(aes(x = log_b0b1)) + geom_density()
+log_b_p = boot_summary %>% 
+  ggplot(aes(x = log_b0b1)) + geom_density() + 
+  labs(
+    x = "Log(β0*β1)",
+    y = "Density",
+    title = "Density of log(β0*β1) estimates across bootstrapped models")
+
+r_sq_p + log_b_p
 ```
+
+The above plots show that the distribution of $\hat{r}^2$ estimates are highest around 1.82, while the highest distribution of $log(\hat{\beta_0}*\hat{\beta_1})$ sits around 3.40.
 
 ## Part 2: Washington Post Homicide Data
 
@@ -91,6 +104,7 @@ The Washington Post has gathered data on homicides in 50 large U.S. cities. Let'
 ```{r load homicide data}
 homicide_data = read_csv("data/homicide-data.csv") %>% 
   janitor::clean_names()
+
 homicide_data
 ```
 
