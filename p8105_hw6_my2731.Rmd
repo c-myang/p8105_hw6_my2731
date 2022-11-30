@@ -8,7 +8,6 @@ date: "December 3rd, 2022"
 library(tidyverse)
 library(p8105.datasets)
 library(modelr)
-library(patchwork)
 
 knitr::opts_chunk$set(
   warning = FALSE, 
@@ -78,11 +77,11 @@ homicide_data = homicide_data %>%
          victim_race == "White" | victim_race == "Black")
 ```
 
-There are now `r nrow(homicide_data)` observations of `r ncol(homicide_data)` variables in our cleaned dataset containing information about homicides in 47 cities across the US.
+There are now `r nrow(homicide_data)` observations of `r ncol(homicide_data)` variables in our cleaned dataset containing homicide information in 47 cities across the US.
 
 ### Modelling homicide data
 
-Now, using purrr::map, list columns, and unnest, we will run `glm` for each of the cities in the dataset, and extract the adjusted odds ratio (and CI) for solving homicides comparing male victims to female victims. 
+Now, using `purrr::map`, list columns, and `unnest`, we will run `glm` for each of the cities in the dataset, and extract the adjusted odds ratio (and CI) for solving homicides comparing male victims to female victims. 
 
 The resulting code creates a dataframe with estimated adjusted ORs and 95% CIs for each city, comparing the odds of solving a homicide among male victims compared to females.
 
@@ -153,7 +152,7 @@ model_1 = lm(bwt ~ bhead + blength + gaweeks + delwt, data = birthweight_df)
 summary(model_1) 
 ```
 
-Examining `summary(model_1)` output, we can see coefficient estimates for each variable in our linear model, and see that the p-value of the Wald test for each variable is less than 0.05, indicating that they are all significantly associated with our outcome. Moreover, we can see the model fit is decent, with an $R^2$ value of 0.695, indicating the selected variables explain 69.5% of the variability in birthweight. 
+Examining the `summary(model_1)` output, we can see coefficient estimates for each variable in our linear model, and see that the p-value of the Wald test for each variable is less than 0.05, indicating that they are all significantly associated with our outcome. Moreover, we can see the model fit is decent, with an $R^2$ value of 0.695, indicating the selected variables explain 69.5% of the variability in birthweight. 
 
 However, we may want to see how certain sociodemographic variables predict birthweight. Therefore, to start, I will add maternal and paternal race, cigarettes smoken, family income to the model.
 
@@ -179,22 +178,16 @@ birthweight_df = birthweight_df %>%
   modelr::add_residuals(model_3) %>% 
   modelr::add_predictions(model_3) 
 
-resid_plot = birthweight_df %>% 
-  ggplot(aes(x = id, y = resid)) + geom_point(alpha = 0.5, size = 0.5, colour = "maroon") + 
+birthweight_df %>% 
+  ggplot(aes(x = pred, y = resid)) + geom_point(alpha = 0.5, size = 0.5, colour = "maroon") + 
   labs(
-    title = "Residuals for birthweight regression model",
-    x = "Subject ID",
+    title = "Model 3 residuals vs. predicted values",
+    x = "Predicted value",
     y = "Residual")
 
-pred_plot = birthweight_df %>% 
-  ggplot(aes(x = id, y = pred)) + geom_point(alpha = 0.5, size = 0.5, colour = "maroon") + 
-  labs(
-    title = "Predicted values for birthweight regression model",
-    x = "Subject ID",
-    y = "Predicted value (birthweight)")
-
-resid_plot + pred_plot
 ```
+
+The above plot shows that for the most part, our data does not violate assumptions of linearity and does not have unequal error variances, as the points form a 'cloud' shape around the residual = 0 line. We do see, however, a few outliers for some smaller predicted values with large residuals, indicating that we may want to treat or verify these observations for erroneous data entries. 
 
 ### Cross-validating models
 
