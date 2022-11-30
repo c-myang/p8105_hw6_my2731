@@ -35,16 +35,51 @@ weather_df =
   select(name, id, everything())
 ```
 
+Using  5000 bootstrap samples we will produce estimates of $\hat{r}^2$ and $log(\hat{\beta_0}*\hat{\beta_1})$ 
+
 ```{r}
-crossval_df = weather_df %>% 
+weather_bootstrap = weather_df %>% 
   modelr::bootstrap(n = 100) %>% 
   mutate(
     models = map(strap, ~lm(tmax ~ tmin, data = .x)),
-    results = map(models, broom::tidy)) %>% 
+    results = map(models, broom::tidy), 
+    fits = map(models, broom::glance)) %>% 
   select(-strap, -models) %>% 
-  unnest(results) %>% 
-  group_by(term) %>% 
-  summarize(boot_se = sd(estimate))
+  unnest(results, fits) %>% 
+  pivot_wider(
+    names_from = term, 
+    names_prefix = "b_",
+    values_from = estimate
+  ) %>% 
+  fill(`b_(Intercept)`, .direction = "down") %>% 
+  fill(b_tmin, .direction = "up") %>% 
+  group_by(.id) %>% 
+  summarise_all(funs(sum))
+```
+
+I can also use the estimates across bootstrap samples to construct a confidence interval around $\hat{r}^2$ and $log(\hat{\beta_0}*\hat{\beta_1})$. 
+
+```{r}
+boot_summary = weather_bootstrap %>% 
+  group_by(.id) %>% 
+  summarize(log_b0b1 = log(`b_(Intercept)`*b_tmin),
+            r_squared = r.squared, 
+            cil_log_b0b1 = quantile(log_b0b1, 0.025), 
+            ciu_log_b0b1 = quantile(log_b0b1, 0.975), 
+            cil_rsquared = quantile(r_squared, 0.025), 
+            ciu_rsquared = quantile(r_squared, 0.975)) 
+
+boot_summary %>% knitr::kable(digits = 3)
+```
+
+Let's plot these estimates:
+
+```{r}
+boot_summary %>% 
+  ggplot(aes(x = r_squared)) + geom_density() 
+
+boot_summary %>% 
+  ggplot(aes(x = log_b0b1)) + geom_density()
 ```
 
 ## Part 2: Washington Post Homicide Data
@@ -179,7 +214,7 @@ birthweight_df = birthweight_df %>%
   modelr::add_predictions(model_3) 
 
 birthweight_df %>% 
-  ggplot(aes(x = pred, y = resid)) + geom_point(alpha = 0.5, size = 0.5, colour = "maroon") + 
+  ggplot(aes(x = pred, y = resid)) + geom_point(alpha = 0.5, size = 0.8, colour = "maroon") + 
   labs(
     title = "Model 3 residuals vs. predicted values",
     x = "Predicted value",
