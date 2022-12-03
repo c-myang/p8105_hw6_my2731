@@ -178,18 +178,20 @@ Next, we will analyze data gathered to understand the effects of several variabl
 
 ### Load and clean data
 
-The code chunk below loads and clean the data for regression analysis. We will convert numeric variables into factor variables for categorical variables `babysex`, `frace`, `malform`, and `mrace`. We will also assign subject IDs to each observation in our dataset.
+The code chunk below loads and clean the data for regression analysis. We will convert `malform` to a logical variable, and convert categorical variables `babysex`, `frace`, and `mrace` into factors, while recoding them.
 
 ```{r load birth data}
 birthweight_df = read_csv("data/birthweight.csv") %>% 
-  janitor::clean_names()
-
-birthweight_df = birthweight_df %>% 
+  janitor::clean_names() %>% 
   mutate(babysex = as.factor(babysex), 
          frace = as.factor(frace), 
-         malform = as.factor(malform), 
+         malform = as.logical(malform),
          mrace = as.factor(mrace), 
-         id = 1:nrow(birthweight_df))
+         babysex = fct_recode(babysex, "male" = "1", "female" = "2"),
+         frace = fct_recode(frace, "white" = "1", "black" = "2", "asian" = "3", 
+                       "puerto rican" = "4", "other" = "8"),
+         mrace = fct_recode(mrace, "white" = "1", "black" = "2", "asian" = "3", 
+                       "puerto rican" = "4"))
 ```
 
 ### Proposing a model for birthweight
