@@ -118,7 +118,7 @@ homicide_data = homicide_data %>%
     state = str_to_upper(state),
     city_state = str_c(city, state, sep = ", "), 
     victim_age = as.numeric(victim_age),
-    resolved = as.numeric(disposition == "Closed by arrest")) %>% 
+    resolved = as.logical(disposition == "Closed by arrest")) %>% 
   filter(city_state != "Dallas, TX" & 
            city_state != "Phoenix, AZ" & 
            city_state != "Kansas City, MO" & 
@@ -130,7 +130,7 @@ There are now `r nrow(homicide_data)` observations of `r ncol(homicide_data)` va
 
 ### Modelling homicide data
 
-#### Baltimore, MD
+#### For Baltimore, MD
 
 For the city of Baltimore, MD, we will use the `glm` function to fit a logistic regression with resolved vs unresolved as the outcome and victim age, sex and race as predictors. We will save the output as an R object and obtain the estimate and confidence interval of the adjusted odds ratio for solving homicides comparing male victims to female victims, keeping all other variables fixed.
 
@@ -175,6 +175,8 @@ OR_df = homicide_data %>%
          CIU = exp(estimate + 1.96*std.error)) %>% 
   filter(term == "victim_sexMale") %>% 
   select(city_state, term, log_OR = estimate, OR, CIL, CIU, p.value)
+
+head(OR_df) %>% knitr::kable()
 ```
 
 Next, we will plot the estimated ORs and CIs for each city.
